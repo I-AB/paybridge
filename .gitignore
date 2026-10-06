@@ -1,0 +1,12 @@
+target/
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Secrets and local data (never commit API keys, even test keys)
+.env
+.env.*
+!.env.example
+data/
+*.log

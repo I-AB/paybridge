@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: paybridge
+  datasource:
+    # In-memory H2 database: data is lost when the app stops. Fine for a classroom demo.
+    url: jdbc:h2:mem:paybridge;DB_CLOSE_DELAY=-1
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/migration/V1__create_transfers.sql
+
+server:
+  port: 8080
+
+paybridge:
+  transfer:
+    # paystack = real Paystack TEST API, simulated = offline stand-in for demos (no network)
+    gateway: ${PAYBRIDGE_GATEWAY:paystack}
+    # Name enquiry before sending. Set to false if Paystack test mode cannot resolve your test account.
+    resolve-account-before-send: ${PAYBRIDGE_RESOLVE_ACCOUNT:true}
+  paystack:
+    base-url: https://api.paystack.co
+    # Never put a key here. Set the PAYSTACK_SECRET_KEY environment variable (test key, sk_test_...).
+    secret-key: ${PAYSTACK_SECRET_KEY:}
+    connect-timeout: 3s
+    read-timeout: 10s
+
+logging:
+  level:
+    com.academy.paybridge: INFO
