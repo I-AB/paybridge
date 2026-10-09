@@ -10,7 +10,7 @@ spring:
       schema-locations: classpath:db/migration/V1__create_transfers.sql
 
 server:
-  port: 8080
+  port: ${PORT:8080}
 
 paybridge:
   transfer:
