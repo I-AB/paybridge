@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PayBridge Transfer Demo</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 640px; margin: 24px auto; padding: 0 16px; color: #1a1a1a; }
+        h1 { font-size: 1.4rem; margin-bottom: 4px; }
+        p.note { color: #555; margin-top: 0; }
+        label { display: block; margin-top: 12px; font-weight: 600; font-size: .9rem; }
+        input, select { width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box; font-size: 1rem; }
+        .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+        button { padding: 10px 14px; font-size: .95rem; cursor: pointer; border: 1px solid #333; background: #fff; border-radius: 4px; }
+        button.primary { background: #1a1a1a; color: #fff; }
+        pre { background: #f4f4f4; padding: 12px; overflow-x: auto; margin-top: 16px; white-space: pre-wrap; word-break: break-word; }
+        .key { font-size: .8rem; color: #555; margin-top: 8px; }
+    </style>
+</head>
+<body>
+<h1>PayBridge Transfer Demo</h1>
+<p class="note">Simulated gateway: no real money moves. The destination account number decides the outcome.</p>
+
+<label>Destination account (outcome)
+    <select id="account">
+        <option value="0123456789">0123456789 : success</option>
+        <option value="0000000002">0000000002 : pending</option>
+        <option value="0000000003">0000000003 : rejected (insufficient balance)</option>
+        <option value="0000000004">0000000004 : provider timeout (stays pending)</option>
+        <option value="0000000005">0000000005 : name enquiry fails</option>
+    </select>
+</label>
+<label>Bank code <input id="bank" value="058"></label>
+<label>Amount (NGN) <input id="amount" type="number" step="0.01" value="5000.00"></label>
+<label>Reason <input id="reason" value="School fees"></label>
+
+<div class="key">Idempotency-Key: <span id="key"></span></div>
+
+<div class="row">
+    <button class="primary" onclick="send(true)">Send new transfer</button>
+    <button onclick="send(false)">Send same request again (same key)</button>
+</div>
+<div class="row">
+    <button onclick="check()">Check status</button>
+    <button onclick="sync()">Sync with provider</button>
+</div>
+
+<pre id="out">Press "Send new transfer".</pre>
+
+<script>
+    let key = crypto.randomUUID();
+    let lastId = null;
+    const out = document.getElementById("out");
+    const show = t => out.textContent = t;
+    const showKey = () => document.getElementById("key").textContent = key;
+    showKey();
+
+    function payload() {
+        return {
+            sourceAccount: "wallet-001",
+            destination: {
+                accountNumber: document.getElementById("account").value,
+                bankCode: document.getElementById("bank").value
+            },
+            amount: parseFloat(document.getElementById("amount").value),
+            currency: "NGN",
+            reason: document.getElementById("reason").value
+        };
+    }
+
+    async function call(url, options) {
+        try {
+            const res = await fetch(url, options);
+            const text = await res.text();
+            let body;
+            try { body = JSON.stringify(JSON.parse(text), null, 2); } catch (e) { body = text; }
+            const replay = res.headers.get("Idempotent-Replayed");
+            return "HTTP " + res.status + (replay ? "   (Idempotent-Replayed: " + replay + ")" : "") + "\n\n" + body;
+        } catch (e) {
+            return "Request failed: " + e.message;
+        }
+    }
+
+    async function send(fresh) {
+        if (fresh) { key = crypto.randomUUID(); showKey(); }
+        show("Sending... (the first request after idle can take up to a minute)");
+        const res = await fetch("/api/transfers", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Idempotency-Key": key },
+            body: JSON.stringify(payload())
+        }).catch(e => null);
+        if (!res) { show("Request failed. Is the service awake?"); return; }
+        const text = await res.text();
+        let json = null;
+        try { json = JSON.parse(text); } catch (e) {}
+        if (json && json.id) lastId = json.id;
+        const replay = res.headers.get("Idempotent-Replayed");
+        show("HTTP " + res.status + (replay ? "   (Idempotent-Replayed: " + replay + ")" : "") + "\n\n" +
+            (json ? JSON.stringify(json, null, 2) : text));
+    }
+
+    async function check() {
+        if (!lastId) { show("Send a transfer first."); return; }
+        show(await call("/api/transfers/" + lastId, { method: "GET" }));
+    }
+
+    async function sync() {
+        if (!lastId) { show("Send a transfer first."); return; }
+        show(await call("/api/transfers/" + lastId + "/sync", { method: "POST" }));
+    }
+</script>
+</body>
+</html>
