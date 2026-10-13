@@ -6,15 +6,20 @@ import com.academy.paybridge.transfer.repository.DuplicateIdempotencyKeyExceptio
 import com.academy.paybridge.transfer.repository.TransferRepository;
 
 import java.time.Instant;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /** Test double that behaves like the SQL repository: unique idempotency key, PENDING-only updates. */
 public class InMemoryTransferRepository implements TransferRepository {
 
     private final Map<UUID, Transfer> byId = new ConcurrentHashMap<>();
+    private final Set<UUID> fundsReleased = ConcurrentHashMap.newKeySet();
 
     @Override
     public synchronized void insert(Transfer transfer) {
@@ -60,6 +65,38 @@ public class InMemoryTransferRepository implements TransferRepository {
                 t.destinationAccountName(), t.amount(), t.reason(), status, t.providerTransferCode(),
                 failureReason, t.createdAt(), now));
         return true;
+    }
+
+    @Override
+    public void markFundsReleased(UUID id, Instant now) {
+        fundsReleased.add(id);
+    }
+
+    @Override
+    public List<Transfer> findPendingCreatedBefore(Instant cutoff, int limit) {
+        return byId.values().stream()
+                .filter(t -> t.status() == TransferStatus.PENDING && t.createdAt().isBefore(cutoff))
+                .sorted(Comparator.comparing(Transfer::createdAt))
+                .limit(limit).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Transfer> findFailedAwaitingRelease(int limit) {
+        return byId.values().stream()
+                .filter(t -> t.status() == TransferStatus.FAILED && !fundsReleased.contains(t.id()))
+                .sorted(Comparator.comparing(Transfer::createdAt))
+                .limit(limit).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Transfer> findRecent(int limit) {
+        return byId.values().stream()
+                .sorted(Comparator.comparing(Transfer::createdAt).reversed())
+                .limit(limit).collect(Collectors.toList());
+    }
+
+    public boolean isFundsReleased(UUID id) {
+        return fundsReleased.contains(id);
     }
 
     public int size() {

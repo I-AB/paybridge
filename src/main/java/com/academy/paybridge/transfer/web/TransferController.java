@@ -5,6 +5,8 @@ import com.academy.paybridge.transfer.domain.TransferStatus;
 import com.academy.paybridge.transfer.service.CreateTransferCommand;
 import com.academy.paybridge.transfer.service.TransferOutcome;
 import com.academy.paybridge.transfer.service.TransferService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,9 +16,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URI;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -29,6 +33,7 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/api/transfers")
+@Tag(name = "Transfers", description = "Send money out of a PayBridge account")
 public class TransferController {
 
     static final String REPLAY_HEADER = "Idempotent-Replayed";
@@ -40,6 +45,8 @@ public class TransferController {
     }
 
     @PostMapping
+    @Operation(summary = "Send money",
+            description = "Needs an Idempotency-Key header. Repeating the same key and body returns the first result without sending again. 201 = finished, 202 = still pending, 200 = replay.")
     public ResponseEntity<TransferResponse> create(
             @RequestHeader("Idempotency-Key") String idempotencyKey,
             @Valid @RequestBody CreateTransferRequest request) {
@@ -64,13 +71,21 @@ public class TransferController {
                 .body(body);
     }
 
+    @GetMapping
+    @Operation(summary = "Recent transfers, newest first")
+    public List<TransferResponse> recent(@RequestParam(defaultValue = "20") int limit) {
+        return transferService.recent(limit).stream().map(TransferResponse::from).toList();
+    }
+
     @GetMapping("/{id}")
+    @Operation(summary = "One transfer")
     public TransferResponse get(@PathVariable UUID id) {
         return TransferResponse.from(transferService.get(id));
     }
 
     /** Asks the provider for the latest status. Handy when a webhook did not arrive. */
     @PostMapping("/{id}/sync")
+    @Operation(summary = "Ask the provider for the latest status")
     public TransferResponse sync(@PathVariable UUID id) {
         return TransferResponse.from(transferService.sync(id));
     }

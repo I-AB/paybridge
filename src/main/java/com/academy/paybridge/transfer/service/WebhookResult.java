@@ -9,5 +9,7 @@ public enum WebhookResult {
     /** The event does not say anything final yet. */
     IGNORED,
     /** We have no transfer with that reference. */
-    UNKNOWN_REFERENCE
+    UNKNOWN_REFERENCE,
+    /** The amount in the event differs from the amount we sent, so the event was not applied. */
+    AMOUNT_MISMATCH
 }

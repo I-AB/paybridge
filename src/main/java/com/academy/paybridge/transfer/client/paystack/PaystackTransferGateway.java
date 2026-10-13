@@ -1,5 +1,6 @@
 package com.academy.paybridge.transfer.client.paystack;
 
+import com.academy.paybridge.transfer.client.BankInfo;
 import com.academy.paybridge.transfer.client.GatewayConfigurationException;
 import com.academy.paybridge.transfer.client.GatewayRejectedException;
 import com.academy.paybridge.transfer.client.GatewayTransferRequest;
@@ -7,6 +8,7 @@ import com.academy.paybridge.transfer.client.GatewayTransferResult;
 import com.academy.paybridge.transfer.client.GatewayUnavailableException;
 import com.academy.paybridge.transfer.client.ResolvedAccount;
 import com.academy.paybridge.transfer.client.TransferGateway;
+import com.academy.paybridge.transfer.client.paystack.PaystackDtos.BankData;
 import com.academy.paybridge.transfer.client.paystack.PaystackDtos.Envelope;
 import com.academy.paybridge.transfer.client.paystack.PaystackDtos.RecipientBody;
 import com.academy.paybridge.transfer.client.paystack.PaystackDtos.RecipientData;
@@ -26,6 +28,7 @@ import org.springframework.web.client.RestClientException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.util.List;
 import java.util.function.Supplier;
 
 /**
@@ -44,6 +47,7 @@ public class PaystackTransferGateway implements TransferGateway {
     private static final ParameterizedTypeReference<Envelope<ResolveData>> RESOLVE_TYPE = new ParameterizedTypeReference<>() { };
     private static final ParameterizedTypeReference<Envelope<RecipientData>> RECIPIENT_TYPE = new ParameterizedTypeReference<>() { };
     private static final ParameterizedTypeReference<Envelope<TransferData>> TRANSFER_TYPE = new ParameterizedTypeReference<>() { };
+    private static final ParameterizedTypeReference<Envelope<List<BankData>>> BANKS_TYPE = new ParameterizedTypeReference<>() { };
     private static final int MAX_MESSAGE_LENGTH = 200;
 
     private final RestClient restClient;
@@ -103,6 +107,23 @@ public class PaystackTransferGateway implements TransferGateway {
                 .body(TRANSFER_TYPE));
         TransferData data = requireData(response);
         return new GatewayTransferResult(PaystackStatusMapper.map(data.status()), data.transferCode(), response.message());
+    }
+
+    @Override
+    public List<BankInfo> listBanks() {
+        String auth = bearer();
+        Envelope<List<BankData>> response = execute(() -> restClient.get()
+                .uri(uri -> uri.path("/bank")
+                        .queryParam("country", "nigeria")
+                        .queryParam("perPage", 200)
+                        .build())
+                .header(HttpHeaders.AUTHORIZATION, auth)
+                .retrieve()
+                .body(BANKS_TYPE));
+        return requireData(response).stream()
+                .filter(b -> b.name() != null && b.code() != null)
+                .map(b -> new BankInfo(b.name(), b.code()))
+                .toList();
     }
 
     private String createRecipient(GatewayTransferRequest request, String auth) {

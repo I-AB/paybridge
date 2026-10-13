@@ -1,4 +1,7 @@
+# Build output
 target/
+
+# IDE / OS
 .idea/
 *.iml
 .vscode/

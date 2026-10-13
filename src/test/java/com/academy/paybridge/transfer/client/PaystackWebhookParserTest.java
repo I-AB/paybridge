@@ -36,6 +36,15 @@ class PaystackWebhookParserTest {
     }
 
     @Test
+    void amountInKoboIsCarriedIntoTheEvent() {
+        String body = "{\"event\":\"transfer.success\",\"data\":{\"reference\":\"pb-1\",\"transfer_code\":\"TRF_9\",\"amount\":500000}}";
+
+        GatewayTransferEvent event = parser(SECRET).parse(bytes(body), PaystackWebhookParser.sign(SECRET, bytes(body))).orElseThrow();
+
+        assertThat(event.amountMinorUnits()).isEqualTo(500_000L);
+    }
+
+    @Test
     void failedAndReversedEventsBothMapToFailed() {
         for (String name : new String[] {"transfer.failed", "transfer.reversed"}) {
             String body = body(name, "pb-2");

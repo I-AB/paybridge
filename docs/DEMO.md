@@ -4,6 +4,26 @@ Two parts. **Part A needs no Paystack account** and shows every outcome. **Part 
 
 Commands use bash `curl` (Git Bash, macOS, Linux). On Windows PowerShell use Git Bash or Postman, because PowerShell quotes JSON differently.
 
+## Easiest way: use the dashboard
+Open http://localhost:8080/ (or the deployed URL). Open an account, click **+ Add money**, pick a bank, type an account number (the simulator shortcuts fill in `...2` to `...5`), and send. The "Last API response" panel shows the raw status codes. Use **Send same request again** to demonstrate idempotency.
+
+## Before the curl demos: you need a funded account
+Transfers now come from a real PayBridge account, so `wallet-001` below must be replaced by an account number you create:
+```bash
+curl -s -X POST http://localhost:8080/api/accounts -H "Content-Type: application/json" -d '{"holderName":"Demo User"}'
+# copy "accountNumber", e.g. 9012345678
+curl -s -X POST http://localhost:8080/api/accounts/9012345678/fund \
+  -H "Content-Type: application/json" -H "Idempotency-Key: fund-001" -d '{"amount":50000}'
+```
+Then use that number as `sourceAccount` everywhere below. (Shortcut: start with `PAYBRIDGE_ENFORCE_BALANCE=false` and `wallet-001` works unchanged, with no balance checks.)
+
+### Extra demos this version adds
+- **Money is held, then returned:** send to `0000000003` (rejected), then `GET /api/accounts/9012345678` shows the balance restored and `/entries` shows hold + refund.
+- **Insufficient funds:** send more than the balance. The transfer is stored as `FAILED` and nothing is debited.
+- **Timeout keeps money held:** send to `0000000004`; the balance stays reduced while the transfer is `PENDING`.
+- **Webhook audit:** `GET /api/webhooks/events` lists every verified webhook and its outcome (`APPLIED`, `DUPLICATE`, `AMOUNT_MISMATCH`, ...).
+- **Swagger:** `/swagger-ui.html`. **Health:** `/actuator/health`.
+
 ## Part A: offline simulator (all outcomes)
 
 ### A1. Start the app

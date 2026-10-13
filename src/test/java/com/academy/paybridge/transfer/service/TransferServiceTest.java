@@ -1,5 +1,6 @@
 package com.academy.paybridge.transfer.service;
 
+import com.academy.paybridge.account.api.AccountApi;
 import com.academy.paybridge.transfer.client.GatewayConfigurationException;
 import com.academy.paybridge.transfer.client.GatewayRejectedException;
 import com.academy.paybridge.transfer.client.GatewayStatus;
@@ -14,6 +15,7 @@ import com.academy.paybridge.transfer.domain.InvalidTransferException;
 import com.academy.paybridge.transfer.domain.Transfer;
 import com.academy.paybridge.transfer.domain.TransferNotFoundException;
 import com.academy.paybridge.transfer.domain.TransferStatus;
+import com.academy.paybridge.transfer.repository.WebhookAuditRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -47,14 +49,18 @@ class TransferServiceTest {
 
     private InMemoryTransferRepository repository;
     private TransferGateway gateway;
+    private AccountApi accounts;
+    private WebhookAuditRepository audit;
     private TransferService service;
 
     @BeforeEach
     void setUp() {
         repository = new InMemoryTransferRepository();
         gateway = mock(TransferGateway.class);
+        accounts = mock(AccountApi.class);
+        audit = mock(WebhookAuditRepository.class);
         when(gateway.resolveAccount(any(), any())).thenReturn(new ResolvedAccount("0123456789", "ADA OBI"));
-        service = new TransferService(repository, gateway, new TransferProperties(true), CLOCK);
+        service = new TransferService(repository, gateway, accounts, audit, new TransferProperties(true, false), CLOCK);
     }
 
     private CreateTransferCommand command(String key, String amount) {
@@ -193,7 +199,7 @@ class TransferServiceTest {
 
     @Test
     void canSkipNameEnquiryWhenDisabled() {
-        service = new TransferService(repository, gateway, new TransferProperties(false), CLOCK);
+        service = new TransferService(repository, gateway, accounts, audit, new TransferProperties(false, false), CLOCK);
         providerAnswers(GatewayStatus.SUCCESS);
 
         Transfer t = service.initiate(command(KEY, "100.00")).transfer();
@@ -259,7 +265,7 @@ class TransferServiceTest {
         // Simulate the race: this caller's first lookup finds nothing, but the insert then hits the unique key.
         InMemoryTransferRepository racing = spy(repository);
         doReturn(Optional.empty()).doCallRealMethod().when(racing).findByIdempotencyKey(KEY);
-        TransferService racingService = new TransferService(racing, gateway, new TransferProperties(true), CLOCK);
+        TransferService racingService = new TransferService(racing, gateway, accounts, audit, new TransferProperties(true, false), CLOCK);
 
         TransferOutcome loser = racingService.initiate(command(KEY, "5000.00"));
 
@@ -333,7 +339,7 @@ class TransferServiceTest {
             @Override public Clock withZone(java.time.ZoneId zone) { return this; }
             @Override public Instant instant() { return CLOCK.instant().plusSeconds(ticks.incrementAndGet()); }
         };
-        service = new TransferService(repository, gateway, new TransferProperties(true), ticking);
+        service = new TransferService(repository, gateway, accounts, audit, new TransferProperties(true, false), ticking);
         Transfer t = pendingTransfer();
         GatewayTransferEvent event = new GatewayTransferEvent(t.reference(), "TRF_new", GatewayStatus.SUCCESS, null);
 

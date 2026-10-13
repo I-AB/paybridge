@@ -3,6 +3,8 @@ package com.academy.paybridge.transfer.web;
 import com.academy.paybridge.transfer.client.GatewayTransferEvent;
 import com.academy.paybridge.transfer.client.TransferWebhookParser;
 import com.academy.paybridge.transfer.service.TransferService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -21,6 +23,7 @@ import java.util.Optional;
  */
 @RestController
 @RequestMapping("/api/webhooks")
+@Tag(name = "Webhooks")
 public class WebhookController {
 
     private final TransferWebhookParser parser;
@@ -32,6 +35,7 @@ public class WebhookController {
     }
 
     @PostMapping("/paystack")
+    @Operation(summary = "Receiver for Paystack transfer events (signature verified)")
     public ResponseEntity<Void> paystack(
             @RequestBody byte[] rawBody,
             @RequestHeader(name = "X-Paystack-Signature", required = false) String signature) {

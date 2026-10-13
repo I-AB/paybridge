@@ -63,7 +63,10 @@ public class PaystackWebhookParser implements TransferWebhookParser {
         String message = status == GatewayStatus.SUCCESS ? null
                 : "transfer.reversed".equals(event) ? "Transfer was reversed by the payment provider"
                 : "Transfer failed at the payment provider";
-        return Optional.of(new GatewayTransferEvent(reference, text(data.path("transfer_code")), status, message));
+        JsonNode amountNode = data.path("amount");
+        Long amountMinor = amountNode.isNumber() ? amountNode.longValue() : null; // Paystack sends kobo
+        return Optional.of(new GatewayTransferEvent(
+                reference, text(data.path("transfer_code")), status, message, amountMinor));
     }
 
     /** Computes the signature Paystack would send for this body. Used by verification, tests and the demo. */

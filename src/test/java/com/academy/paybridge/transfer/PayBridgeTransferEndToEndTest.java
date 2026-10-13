@@ -31,6 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @SpringBootTest(properties = {
         "paybridge.transfer.gateway=simulated",
+        "paybridge.transfer.enforce-source-balance=false",
         "paybridge.paystack.secret-key=sk_test_end_to_end"
 })
 class PayBridgeTransferEndToEndTest {

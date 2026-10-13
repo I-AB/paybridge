@@ -12,6 +12,7 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.Currency;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -98,6 +99,36 @@ public class JdbcTransferRepository implements TransferRepository {
                 .param("id", id)
                 .update();
         return rows == 1;
+    }
+
+    @Override
+    public void markFundsReleased(UUID id, Instant now) {
+        jdbc.sql("UPDATE transfers SET funds_released = TRUE, updated_at = :now WHERE id = :id")
+                .param("now", Timestamp.from(now))
+                .param("id", id)
+                .update();
+    }
+
+    @Override
+    public List<Transfer> findPendingCreatedBefore(Instant cutoff, int limit) {
+        return jdbc.sql(SELECT + "WHERE status = 'PENDING' AND created_at < :cutoff ORDER BY created_at ASC LIMIT :limit")
+                .param("cutoff", Timestamp.from(cutoff))
+                .param("limit", limit)
+                .query(this::map).list();
+    }
+
+    @Override
+    public List<Transfer> findFailedAwaitingRelease(int limit) {
+        return jdbc.sql(SELECT + "WHERE status = 'FAILED' AND funds_released = FALSE ORDER BY created_at ASC LIMIT :limit")
+                .param("limit", limit)
+                .query(this::map).list();
+    }
+
+    @Override
+    public List<Transfer> findRecent(int limit) {
+        return jdbc.sql(SELECT + "ORDER BY created_at DESC, id DESC LIMIT :limit")
+                .param("limit", limit)
+                .query(this::map).list();
     }
 
     private Transfer map(ResultSet rs, int rowNum) throws SQLException {

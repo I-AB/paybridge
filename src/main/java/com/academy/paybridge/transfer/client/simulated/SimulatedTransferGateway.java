@@ -1,5 +1,6 @@
 package com.academy.paybridge.transfer.client.simulated;
 
+import com.academy.paybridge.transfer.client.BankInfo;
 import com.academy.paybridge.transfer.client.GatewayRejectedException;
 import com.academy.paybridge.transfer.client.GatewayStatus;
 import com.academy.paybridge.transfer.client.GatewayTransferRequest;
@@ -11,6 +12,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
 
 /**
  * An offline stand-in for a payment provider, used for classroom demos and automated tests.
@@ -59,5 +62,18 @@ public class SimulatedTransferGateway implements TransferGateway {
     @Override
     public GatewayTransferResult fetch(String reference) {
         return new GatewayTransferResult(GatewayStatus.SUCCESS, "SIM_" + reference, "Transfer completed (simulated)");
+    }
+
+    @Override
+    public List<BankInfo> listBanks() {
+        return List.of(
+                new BankInfo("Access Bank", "044"),
+                new BankInfo("Guaranty Trust Bank", "058"),
+                new BankInfo("First Bank of Nigeria", "011"),
+                new BankInfo("United Bank for Africa", "033"),
+                new BankInfo("Zenith Bank", "057"),
+                new BankInfo("Kuda Microfinance Bank", "50211"),
+                new BankInfo("OPay", "999992"),
+                new BankInfo("Test Bank (sandbox)", "001"));
     }
 }
