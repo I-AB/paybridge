@@ -162,6 +162,10 @@ Asks the provider for the latest status of a `PENDING` transfer and updates it. 
 ### POST /api/webhooks/paystack
 Called by Paystack, not by you. Requires the `x-paystack-signature` header. Returns 200 for every valid event (including duplicates), 401 for a bad signature, 400 for a malformed payload.
 
+## Sending to another PayBridge account
+
+Choose the bank `PayBridge wallet (another PayBridge account)` (bank code `000000`) and enter the other account's 10-digit number (starts with `90`). No provider is called: the debit and the credit happen together in one database transaction, so either both happen or neither does. The transfer is final (`SUCCESS`, or `FAILED` if the balance is too low) in the same response. Sending to a PayBridge number through any real bank code still goes through the gateway and does not credit the other account.
+
 ## Architecture
 
 ```

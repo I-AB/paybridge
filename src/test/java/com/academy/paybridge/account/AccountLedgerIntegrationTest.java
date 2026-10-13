@@ -97,6 +97,116 @@ class AccountLedgerIntegrationTest {
     }
 
     @Test
+    void transferMovesMoneyFromOneAccountToTheOther() {
+        AccountView from = openFunded(10_000);
+        AccountView to = openFunded(500);
+
+        accounts.transfer(from.accountNumber(), to.accountNumber(), 4_000, ref(), ref(), "sent", "received");
+
+        assertThat(accounts.find(from.accountNumber()).orElseThrow().balanceMinor()).isEqualTo(6_000);
+        assertThat(accounts.find(to.accountNumber()).orElseThrow().balanceMinor()).isEqualTo(4_500);
+    }
+
+    @Test
+    void transferWithTooLittleMoneyChangesNothing() {
+        AccountView from = openFunded(1_000);
+        AccountView to = openFunded(0);
+
+        assertThatThrownBy(() -> accounts.transfer(from.accountNumber(), to.accountNumber(), 1_001, ref(), ref(), "a", "b"))
+                .isInstanceOf(InsufficientFundsException.class);
+
+        assertThat(accounts.find(from.accountNumber()).orElseThrow().balanceMinor()).isEqualTo(1_000);
+        assertThat(accounts.find(to.accountNumber()).orElseThrow().balanceMinor()).isZero();
+    }
+
+    @Test
+    void transferToAnUnknownAccountKeepsTheSendersMoney() {
+        AccountView from = openFunded(1_000);
+
+        assertThatThrownBy(() -> accounts.transfer(from.accountNumber(), "9099999999", 100, ref(), ref(), "a", "b"))
+                .isInstanceOf(AccountNotFoundException.class);
+
+        assertThat(accounts.find(from.accountNumber()).orElseThrow().balanceMinor()).isEqualTo(1_000);
+    }
+
+    @Test
+    void repeatingATransferWithTheSameReferencesMovesMoneyOnce() {
+        AccountView from = openFunded(10_000);
+        AccountView to = openFunded(0);
+        String debitRef = ref();
+        String creditRef = ref();
+
+        accounts.transfer(from.accountNumber(), to.accountNumber(), 3_000, debitRef, creditRef, "a", "b");
+        accounts.transfer(from.accountNumber(), to.accountNumber(), 3_000, debitRef, creditRef, "a", "b");
+
+        assertThat(accounts.find(from.accountNumber()).orElseThrow().balanceMinor()).isEqualTo(7_000);
+        assertThat(accounts.find(to.accountNumber()).orElseThrow().balanceMinor()).isEqualTo(3_000);
+    }
+
+    @Test
+    void transfersInOppositeDirectionsAtTheSameTimeDoNotDeadlock() throws Exception {
+        AccountView a = openFunded(100_000);
+        AccountView b = openFunded(100_000);
+        int each = 20;
+
+        ExecutorService pool = Executors.newFixedThreadPool(8);
+        try {
+            List<Callable<Boolean>> jobs = new java.util.ArrayList<>();
+            for (int i = 0; i < each; i++) {
+                jobs.add(() -> {
+                    accounts.transfer(a.accountNumber(), b.accountNumber(), 100, ref(), ref(), "ab", "ab");
+                    return true;
+                });
+                jobs.add(() -> {
+                    accounts.transfer(b.accountNumber(), a.accountNumber(), 100, ref(), ref(), "ba", "ba");
+                    return true;
+                });
+            }
+            for (Future<Boolean> f : pool.invokeAll(jobs)) {
+                assertThat(f.get(30, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+
+        long total = accounts.find(a.accountNumber()).orElseThrow().balanceMinor()
+                + accounts.find(b.accountNumber()).orElseThrow().balanceMinor();
+        assertThat(total).isEqualTo(200_000);
+        assertThat(accounts.find(a.accountNumber()).orElseThrow().balanceMinor()).isEqualTo(100_000);
+    }
+
+    @Test
+    void concurrentTransfersNeverOverdrawTheSender() throws Exception {
+        AccountView from = openFunded(10_000); // enough for exactly 10 transfers of 1,000
+        AccountView to = openFunded(0);
+
+        ExecutorService pool = Executors.newFixedThreadPool(8);
+        long succeeded = 0;
+        try {
+            List<Callable<Boolean>> jobs = java.util.stream.IntStream.range(0, 25)
+                    .<Callable<Boolean>>mapToObj(i -> () -> {
+                        try {
+                            accounts.transfer(from.accountNumber(), to.accountNumber(), 1_000, ref(), ref(), "race", "race");
+                            return true;
+                        } catch (InsufficientFundsException e) {
+                            return false;
+                        }
+                    }).toList();
+            for (Future<Boolean> f : pool.invokeAll(jobs)) {
+                if (f.get()) {
+                    succeeded++;
+                }
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+
+        assertThat(succeeded).isEqualTo(10);
+        assertThat(accounts.find(from.accountNumber()).orElseThrow().balanceMinor()).isZero();
+        assertThat(accounts.find(to.accountNumber()).orElseThrow().balanceMinor()).isEqualTo(10_000);
+    }
+
+    @Test
     void reverseReturnsADebitExactlyOnce() {
         AccountView account = openFunded(5_000);
         String hold = ref();

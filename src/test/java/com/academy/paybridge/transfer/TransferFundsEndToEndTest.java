@@ -188,6 +188,77 @@ class TransferFundsEndToEndTest {
                 .andExpect(status().isBadRequest());
     }
 
+    /** Same as send(), but the destination is another PayBridge account (bank code 000000). */
+    private MvcResult sendInternal(String source, String destination, String amount, String key) throws Exception {
+        String body = """
+                {"sourceAccount":"%s","destination":{"accountNumber":"%s","bankCode":"000000"},
+                 "amount":%s,"currency":"NGN","reason":"internal test"}""".formatted(source, destination, amount);
+        return mvc.perform(post("/api/transfers").header("Idempotency-Key", key)
+                .contentType(MediaType.APPLICATION_JSON).content(body)).andReturn();
+    }
+
+    @Test
+    void internalTransferMovesMoneyToTheOtherAccount() throws Exception {
+        String from = fundedAccount("10000.00");
+        String to = fundedAccount("500.00");
+
+        MvcResult result = sendInternal(from, to, "2500.00", "k-" + UUID.randomUUID());
+
+        assertThat(result.getResponse().getStatus()).isEqualTo(201);
+        assertThat(field(result, "$.status")).isEqualTo("SUCCESS");
+        assertThat(balance(from)).isEqualTo(7500.0);
+        assertThat(balance(to)).isEqualTo(3000.0);
+    }
+
+    @Test
+    void internalTransferRepeatedWithTheSameKeyMovesMoneyOnce() throws Exception {
+        String from = fundedAccount("10000.00");
+        String to = fundedAccount("0.01");
+        String key = "k-" + UUID.randomUUID();
+
+        MvcResult first = sendInternal(from, to, "1000.00", key);
+        MvcResult second = sendInternal(from, to, "1000.00", key);
+
+        assertThat(first.getResponse().getStatus()).isEqualTo(201);
+        assertThat(second.getResponse().getStatus()).isEqualTo(200);
+        assertThat(balance(from)).isEqualTo(9000.0);
+        assertThat(balance(to)).isEqualTo(1000.01);
+    }
+
+    @Test
+    void internalTransferWithNotEnoughMoneyFailsAndTouchesNothing() throws Exception {
+        String from = fundedAccount("100.00");
+        String to = fundedAccount("50.00");
+
+        MvcResult result = sendInternal(from, to, "500.00", "k-" + UUID.randomUUID());
+
+        assertThat(field(result, "$.status")).isEqualTo("FAILED");
+        assertThat(balance(from)).isEqualTo(100.0);
+        assertThat(balance(to)).isEqualTo(50.0);
+    }
+
+    @Test
+    void internalTransferToAnUnknownOrTheSameAccountIsRejected() throws Exception {
+        String from = fundedAccount("1000.00");
+
+        assertThat(sendInternal(from, "9099999999", "10.00", "k-" + UUID.randomUUID())
+                .getResponse().getStatus()).isEqualTo(404);
+        assertThat(sendInternal(from, from, "10.00", "k-" + UUID.randomUUID())
+                .getResponse().getStatus()).isEqualTo(400);
+        assertThat(balance(from)).isEqualTo(1000.0);
+    }
+
+    @Test
+    void payBridgeIsListedAsADestinationAndItsAccountsCanBeLookedUp() throws Exception {
+        String account = fundedAccount("10.00");
+
+        mvc.perform(get("/api/banks")).andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.code=='000000')]").exists());
+        mvc.perform(get("/api/banks/resolve").param("accountNumber", account).param("bankCode", "000000"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accountName").value("Test Holder"));
+    }
+
     @Test
     void healthEndpointReportsUp() throws Exception {
         mvc.perform(get("/actuator/health")).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("UP"));

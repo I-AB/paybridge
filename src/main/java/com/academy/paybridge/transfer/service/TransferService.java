@@ -59,6 +59,12 @@ public class TransferService {
     private static final Pattern BANK_CODE = Pattern.compile("\\d{3,6}");
     private static final int MAX_FAILURE_REASON = 255;
 
+    /**
+     * The "bank code" that means "another PayBridge account". A transfer with this code never goes to the
+     * payment provider: the money moves between two PayBridge accounts in one database transaction.
+     */
+    public static final String INTERNAL_BANK_CODE = "000000";
+
     private final TransferRepository repository;
     private final TransferGateway gateway;
     private final AccountApi accounts;
@@ -84,6 +90,10 @@ public class TransferService {
         Optional<Transfer> existing = repository.findByIdempotencyKey(command.idempotencyKey());
         if (existing.isPresent()) {
             return replay(existing.get(), fingerprint);
+        }
+
+        if (INTERNAL_BANK_CODE.equals(command.destinationBankCode())) {
+            return initiateInternal(command, amount, fingerprint);
         }
 
         if (properties.enforceSourceBalance()) {
@@ -124,6 +134,60 @@ public class TransferService {
         return new TransferOutcome(get(id), false);
     }
 
+    /**
+     * A transfer between two PayBridge accounts. There is no provider, so there is nothing to wait for:
+     * the debit and the credit happen together in {@link AccountApi#transfer}, and the transfer is final
+     * (SUCCESS, or FAILED if the balance is too low) before this method returns.
+     */
+    private TransferOutcome initiateInternal(CreateTransferCommand command, Money amount, String fingerprint) {
+        String source = command.sourceAccount().trim();
+        String destination = command.destinationAccountNumber();
+        AccountView from = accounts.find(source).orElseThrow(() -> new AccountNotFoundException(source));
+        AccountView to = accounts.find(destination).orElseThrow(() -> new AccountNotFoundException(destination));
+        if (source.equals(destination)) {
+            throw new InvalidTransferException("You cannot send money to the same account");
+        }
+        String currency = command.currency();
+        if (!from.currency().equals(currency) || !to.currency().equals(currency)) {
+            throw new InvalidTransferException("Both accounts must hold " + currency);
+        }
+
+        Instant now = clock.instant();
+        UUID id = UUID.randomUUID();
+        Transfer transfer = new Transfer(
+                id, command.idempotencyKey(), fingerprint, "pb-" + id,
+                source, destination, INTERNAL_BANK_CODE,
+                to.holderName(), amount, blankToNull(command.reason()),
+                TransferStatus.PENDING, null, null, now, now);
+        try {
+            repository.insert(transfer);
+        } catch (DuplicateIdempotencyKeyException e) {
+            Transfer winner = repository.findByIdempotencyKey(command.idempotencyKey()).orElseThrow(() -> e);
+            return replay(winner, fingerprint);
+        }
+
+        boolean moved = false;
+        try {
+            accounts.transfer(source, destination, amount.minorUnits(),
+                    holdReference(transfer), "credit:" + transfer.reference(),
+                    "Transfer " + transfer.reference(), "Received from " + from.holderName());
+            moved = true;
+        } catch (InsufficientFundsException e) {
+            repository.markIfPending(id, TransferStatus.FAILED, InsufficientFundsException.MESSAGE, clock.instant());
+            repository.markFundsReleased(id, clock.instant()); // nothing was taken, so nothing to return
+        } catch (RuntimeException e) {
+            // AccountApi.transfer is one database transaction, so after any error nothing was moved.
+            // Mark it FAILED instead of leaving it PENDING forever (the reconciler skips internal transfers).
+            log.error("Internal transfer {} failed", transfer.reference(), e);
+            repository.markIfPending(id, TransferStatus.FAILED, "Transfer could not be completed", clock.instant());
+            repository.markFundsReleased(id, clock.instant());
+        }
+        if (moved) {
+            repository.markIfPending(id, TransferStatus.SUCCESS, null, clock.instant());
+        }
+        return new TransferOutcome(get(id), false);
+    }
+
     public Transfer get(UUID id) {
         return repository.findById(id).orElseThrow(() -> new TransferNotFoundException(id));
     }
@@ -131,8 +195,8 @@ public class TransferService {
     /** Asks the provider for the latest status of a PENDING transfer. Useful when no webhook arrives. */
     public Transfer sync(UUID id) {
         Transfer transfer = get(id);
-        if (transfer.status().isFinal()) {
-            return transfer;
+        if (transfer.status().isFinal() || INTERNAL_BANK_CODE.equals(transfer.destinationBankCode())) {
+            return transfer; // internal transfers never went to a provider, so there is nobody to ask
         }
         GatewayTransferResult result = gateway.fetch(transfer.reference());
         recordProviderCode(id, result.providerTransferCode());
@@ -191,6 +255,9 @@ public class TransferService {
         Instant now = clock.instant();
         int touched = 0;
         for (Transfer transfer : repository.findPendingCreatedBefore(now.minus(minAge), batchSize)) {
+            if (INTERNAL_BANK_CODE.equals(transfer.destinationBankCode())) {
+                continue; // never sent to a provider, so there is nobody to ask
+            }
             try {
                 GatewayTransferResult result = gateway.fetch(transfer.reference());
                 recordProviderCode(transfer.id(), result.providerTransferCode());

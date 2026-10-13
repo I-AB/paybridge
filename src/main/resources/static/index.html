@@ -161,7 +161,7 @@
   <!-- SEND -->
   <div id="v-send" class="view">
     <div class="title">Send to bank</div>
-    <div class="subtitle">Any Nigerian bank account</div>
+    <div class="subtitle">Any Nigerian bank account, or another PayBridge account</div>
     <div style="padding:0 18px">
       <div class="from"><div><small>From</small><b id="srcLabel">No account selected</b></div><div style="text-align:right"><small>Balance</small><b id="srcBal">₦0.00</b></div></div>
       <label for="bank">Bank</label>
@@ -175,6 +175,8 @@
       <input id="why" maxlength="100" placeholder="School fees" autocomplete="off">
       <div class="hint">Simulator shortcuts, tap to fill the account number:</div>
       <div class="chips" id="chips"></div>
+      <div class="hint">Send to another PayBridge account, tap to fill:</div>
+      <div class="chips" id="ownChips"></div>
       <button class="btn" id="sendBtn">Send money</button>
       <button class="btn ghost" id="againBtn" disabled>Send same request again</button>
       <div class="hint">The second button reuses the Idempotency-Key. You get the first answer back and nothing is sent twice.</div>
@@ -303,6 +305,7 @@
     add.addEventListener('click', () => { openSheet('sheetOpen'); setTimeout(() => $('holder').focus(), 250); });
     sw.append(add);
     paintBalance();
+    buildOwnChips();
   }
   async function openAccount() {
     const name = $('holder').value.trim();
@@ -335,7 +338,7 @@
       const { res, data } = await api('GET', '/api/banks');
       if (!res.ok || !Array.isArray(data) || !data.length) throw new Error('no banks');
       sel.replaceChildren(...data.map((b) => el('option', { value: b.code, textContent: b.name })));
-    } catch { sel.replaceChildren(el('option', { value: '058', textContent: 'Bank code 058' })); }
+    } catch { sel.replaceChildren(el('option', { value: '058', textContent: 'Bank code 058' }), el('option', { value: '000000', textContent: 'PayBridge wallet (another PayBridge account)' })); }
   }
   let resolveTimer;
   function scheduleResolve() {
@@ -350,11 +353,22 @@
       else { r.textContent = (data && data.message) || 'Could not resolve this account'; r.className = 'name err'; }
     }, 350);
   }
+  const INTERNAL_BANK = '000000';
+  function buildOwnChips() {
+    const box = $('ownChips'); box.replaceChildren();
+    const others = state.accounts.filter((a) => a.accountNumber !== state.source);
+    if (!others.length) { box.append(el('span', { className: 'hint', textContent: 'Open a second account to try this.' })); return; }
+    others.forEach((a) => {
+      const c = el('button', { className: 'chip', type: 'button', textContent: a.holderName + ' · ' + a.accountNumber.slice(-4) });
+      c.addEventListener('click', () => { $('bank').value = INTERNAL_BANK; $('acc').value = a.accountNumber; scheduleResolve(); });
+      box.append(c);
+    });
+  }
   function buildChips() {
     const hints = [['0000000001', 'success'], ['0000000002', 'pending'], ['0000000003', 'rejected'], ['0000000004', 'timeout'], ['0000000005', 'lookup fails']];
     $('chips').replaceChildren(...hints.map(([n, label]) => {
       const c = el('button', { className: 'chip', type: 'button', textContent: n.slice(-1) + ' · ' + label });
-      c.addEventListener('click', () => { $('acc').value = n; scheduleResolve(); });
+      c.addEventListener('click', () => { if ($('bank').value === INTERNAL_BANK && $('bank').options.length > 1) $('bank').selectedIndex = 0; $('acc').value = n; scheduleResolve(); });
       return c;
     }));
   }

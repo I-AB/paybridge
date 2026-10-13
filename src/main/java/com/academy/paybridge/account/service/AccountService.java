@@ -113,6 +113,27 @@ public class AccountService implements AccountApi {
 
     @Override
     @Transactional
+    public PostingResult transfer(String fromAccount, String toAccount, long amountMinor,
+                                  String debitReference, String creditReference,
+                                  String debitDescription, String creditDescription) {
+        requirePositive(amountMinor);
+        if (fromAccount.equals(toAccount)) {
+            throw new InvalidAccountRequestException("You cannot send money to the same account");
+        }
+        // Lock both rows in a fixed order (lowest number first) so that two transfers going in
+        // opposite directions at the same time cannot wait for each other forever.
+        String first = fromAccount.compareTo(toAccount) < 0 ? fromAccount : toAccount;
+        String second = first.equals(fromAccount) ? toAccount : fromAccount;
+        accounts.lockByNumber(first).orElseThrow(() -> new AccountNotFoundException(first));
+        accounts.lockByNumber(second).orElseThrow(() -> new AccountNotFoundException(second));
+        // Same transaction as this method, so a failure in the credit undoes the debit.
+        PostingResult debit = debit(fromAccount, amountMinor, debitReference, debitDescription);
+        credit(toAccount, amountMinor, creditReference, creditDescription);
+        return debit;
+    }
+
+    @Override
+    @Transactional
     public boolean reverse(String originalReference, String reversalReference, String description) {
         Optional<LedgerEntryView> original = ledger.findByReference(originalReference);
         if (original.isEmpty() || original.get().direction() != EntryDirection.DEBIT) {
