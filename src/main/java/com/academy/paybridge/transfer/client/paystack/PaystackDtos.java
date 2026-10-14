@@ -56,8 +56,4 @@ public final class PaystackDtos {
             @JsonProperty("transfer_code") String transferCode,
             String status) {
     }
-
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public record BankData(String name, String code) {
-    }
 }

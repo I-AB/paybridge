@@ -25,7 +25,4 @@ public interface TransferGateway {
 
     /** Ask the provider for the latest status of a transfer we already sent. */
     GatewayTransferResult fetch(String reference);
-
-    /** The banks the provider can pay into, so clients do not have to memorise bank codes. */
-    java.util.List<BankInfo> listBanks();
 }

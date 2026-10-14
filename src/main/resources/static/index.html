@@ -1,475 +1,113 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0b2a5b">
-<title>PayBridge</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b2a5b'/%3E%3Cpath d='M6 21h20M9 21v-6a7 7 0 0 1 14 0v6' stroke='white' stroke-width='2.4' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
-<style>
-  :root {
-    --navy: #0b2a5b; --navy-2: #123a7a; --navy-ink: #ffffff;
-    --bg: #ffffff; --soft: #f2f5fa; --line: #e3e8f0; --ink: #0b1b3a; --muted: #6b7a94;
-    --ok: #15803d; --ok-bg: #e3f6ea; --warn: #b45309; --warn-bg: #fdf1d8; --bad: #b91c1c; --bad-bg: #fde8e8;
-  }
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html { background: #e9eef6; }
-  body { margin: 0; color: var(--ink); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-  .app { max-width: 430px; min-height: 100vh; margin: 0 auto; background: var(--bg); position: relative; padding-bottom: 84px;
-    box-shadow: 0 0 40px rgba(11,42,91,.12); }
-  a { color: var(--navy); text-decoration: none; }
-
-  /* top bar */
-  .top { display: flex; align-items: center; gap: 10px; padding: 16px 18px 6px; }
-  .avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--navy); color: #fff; display: grid; place-items: center; font-weight: 700; }
-  .hello { flex: 1; min-width: 0; }
-  .hello b { display: block; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .hello span { font-size: 12.5px; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; }
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--warn); }
-  .dot.up { background: var(--ok); } .dot.down { background: var(--bad); }
-  .icon-btn { width: 38px; height: 38px; border-radius: 50%; background: var(--soft); border: 0; color: var(--navy); display: grid; place-items: center; cursor: pointer; }
-  .icon-btn svg { width: 19px; height: 19px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-
-  /* balance card */
-  .balance { margin: 12px 18px 0; padding: 18px; border-radius: 20px; color: var(--navy-ink);
-    background: linear-gradient(135deg, var(--navy) 0%, var(--navy-2) 100%); box-shadow: 0 10px 24px rgba(11,42,91,.28); position: relative; overflow: hidden; }
-  .balance::after { content: ""; position: absolute; right: -40px; top: -40px; width: 150px; height: 150px; border-radius: 50%; background: rgba(255,255,255,.07); }
-  .balance .lbl { display: flex; align-items: center; gap: 8px; font-size: 13px; opacity: .85; }
-  .balance .eye { background: none; border: 0; color: inherit; padding: 0; cursor: pointer; display: grid; }
-  .balance .eye svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-  .balance .amt { font-size: 32px; font-weight: 750; letter-spacing: -.02em; margin: 6px 0 2px; font-variant-numeric: tabular-nums; }
-  .balance .acct { font-size: 13px; opacity: .85; font-variant-numeric: tabular-nums; }
-  .balance .row { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; position: relative; z-index: 1; }
-  .pill-btn { background: #fff; color: var(--navy); border: 0; border-radius: 999px; padding: 8px 16px; font: inherit; font-weight: 700; cursor: pointer; }
-
-  /* account switcher */
-  .switch { display: flex; gap: 8px; overflow-x: auto; padding: 14px 18px 2px; scrollbar-width: none; }
-  .switch::-webkit-scrollbar { display: none; }
-  .sw { flex: 0 0 auto; border: 1px solid var(--line); background: #fff; color: var(--ink); padding: 7px 13px; border-radius: 999px; font: inherit; font-size: 13.5px; cursor: pointer; }
-  .sw.on { background: var(--navy); border-color: var(--navy); color: #fff; font-weight: 600; }
-  .sw.add { color: var(--navy); border-style: dashed; font-weight: 600; }
-
-  /* quick actions */
-  .quick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 16px 18px 0; padding: 14px 6px; background: var(--soft); border-radius: 18px; }
-  .q { background: none; border: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; font: inherit; font-size: 12.5px; color: var(--ink); cursor: pointer; text-decoration: none; }
-  .q i { width: 46px; height: 46px; border-radius: 15px; background: var(--navy); display: grid; place-items: center; }
-  .q svg { width: 22px; height: 22px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-
-  /* sections */
-  .sec { margin: 22px 18px 0; }
-  .sec h2 { margin: 0 0 10px; font-size: 16px; display: flex; align-items: center; justify-content: space-between; }
-  .sec h2 a, .sec h2 button.link { font-size: 13px; font-weight: 600; background: none; border: 0; color: var(--navy); cursor: pointer; padding: 0; font-family: inherit; }
-  .empty { color: var(--muted); font-size: 13.5px; padding: 14px; background: var(--soft); border-radius: 14px; text-align: center; }
-  .item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
-  .item:last-child { border-bottom: 0; }
-  .ico { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; flex: 0 0 auto; background: var(--soft); color: var(--navy); }
-  .ico svg { width: 19px; height: 19px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-  .ico.SUCCESS, .ico.CREDIT { background: var(--ok-bg); color: var(--ok); }
-  .ico.PENDING { background: var(--warn-bg); color: var(--warn); }
-  .ico.FAILED, .ico.DEBIT { background: var(--bad-bg); color: var(--bad); }
-  .meta { flex: 1; min-width: 0; }
-  .meta b { display: block; font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .meta span { font-size: 12.5px; color: var(--muted); }
-  .right { text-align: right; flex: 0 0 auto; }
-  .right b { display: block; font-variant-numeric: tabular-nums; font-size: 14.5px; }
-  .tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; margin-top: 2px; }
-  .tag.SUCCESS, .tag.CREDIT { background: var(--ok-bg); color: var(--ok); }
-  .tag.PENDING { background: var(--warn-bg); color: var(--warn); }
-  .tag.FAILED, .tag.DEBIT { background: var(--bad-bg); color: var(--bad); }
-  .mini { border: 1px solid var(--line); background: #fff; color: var(--navy); border-radius: 999px; padding: 3px 10px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; margin-top: 4px; }
-
-  /* forms */
-  label { display: block; font-size: 12.5px; font-weight: 600; color: var(--muted); margin: 14px 0 5px; }
-  input, select { width: 100%; padding: 12px 13px; border: 1px solid var(--line); border-radius: 12px; background: var(--soft); color: var(--ink); font: inherit; }
-  input:focus, select:focus { outline: 2px solid var(--navy); outline-offset: 1px; background: #fff; }
-  .btn { display: block; width: 100%; border: 0; border-radius: 14px; padding: 14px; font: inherit; font-weight: 700; font-size: 16px; background: var(--navy); color: #fff; cursor: pointer; margin-top: 18px; }
-  .btn:disabled { opacity: .5; cursor: not-allowed; }
-  .btn.ghost { background: #fff; color: var(--navy); border: 1.5px solid var(--navy); margin-top: 10px; }
-  .name { margin-top: 7px; font-size: 13.5px; font-weight: 600; min-height: 20px; color: var(--ok); }
-  .name.err { color: var(--bad); }
-  .hint { font-size: 12.5px; color: var(--muted); margin-top: 8px; }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-  .chip { font: inherit; font-size: 12px; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; }
-  .chip:active { background: var(--soft); }
-  .title { font-size: 22px; font-weight: 750; letter-spacing: -.02em; margin: 6px 18px 0; }
-  .subtitle { margin: 2px 18px 0; color: var(--muted); font-size: 13.5px; }
-  .from { background: var(--soft); border-radius: 14px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; margin-top: 14px; }
-  .from small { color: var(--muted); display: block; font-size: 12px; }
-  .from b { font-variant-numeric: tabular-nums; }
-  pre { margin: 0; background: var(--navy); color: #dbe7ff; border-radius: 14px; padding: 12px 14px; font-size: 12px; max-height: 260px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
-  .reqline { font-size: 12px; color: var(--muted); margin-bottom: 8px; font-family: ui-monospace, Menlo, Consolas, monospace; word-break: break-all; }
-
-  /* bottom nav */
-  .nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 430px; background: #fff; border-top: 1px solid var(--line);
-    display: grid; grid-template-columns: repeat(3, 1fr); padding: 8px 10px calc(8px + env(safe-area-inset-bottom)); z-index: 10; }
-  .nav button { background: none; border: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; font: inherit; font-size: 12px; color: var(--muted); cursor: pointer; padding: 4px; }
-  .nav svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-  .nav button.on { color: var(--navy); font-weight: 700; }
-  .view { display: none; } .view.on { display: block; }
-
-  /* sheet */
-  .scrim { position: fixed; inset: 0; background: rgba(11,27,58,.45); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 20; }
-  .scrim.on { opacity: 1; pointer-events: auto; }
-  .sheet { position: fixed; left: 50%; bottom: 0; transform: translate(-50%, 100%); width: 100%; max-width: 430px; background: #fff; border-radius: 22px 22px 0 0;
-    padding: 18px 18px calc(22px + env(safe-area-inset-bottom)); transition: transform .25s; z-index: 21; }
-  .sheet.on { transform: translate(-50%, 0); }
-  .sheet h3 { margin: 0 0 4px; font-size: 18px; }
-  .grab { width: 40px; height: 4px; border-radius: 4px; background: var(--line); margin: 0 auto 14px; }
-
-  .toast { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); background: var(--navy); color: #fff; padding: 10px 16px; border-radius: 12px;
-    font-size: 14px; opacity: 0; pointer-events: none; transition: opacity .2s; max-width: 88vw; text-align: center; z-index: 30; }
-  .toast.show { opacity: 1; }
-  .foot { margin: 26px 18px 0; color: var(--muted); font-size: 12px; text-align: center; }
-</style>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PayBridge Transfer Demo</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 640px; margin: 24px auto; padding: 0 16px; color: #1a1a1a; }
+        h1 { font-size: 1.4rem; margin-bottom: 4px; }
+        p.note { color: #555; margin-top: 0; }
+        label { display: block; margin-top: 12px; font-weight: 600; font-size: .9rem; }
+        input, select { width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box; font-size: 1rem; }
+        .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+        button { padding: 10px 14px; font-size: .95rem; cursor: pointer; border: 1px solid #333; background: #fff; border-radius: 4px; }
+        button.primary { background: #1a1a1a; color: #fff; }
+        pre { background: #f4f4f4; padding: 12px; overflow-x: auto; margin-top: 16px; white-space: pre-wrap; word-break: break-word; }
+        .key { font-size: .8rem; color: #555; margin-top: 8px; }
+    </style>
 </head>
 <body>
-<div class="app">
+<h1>PayBridge Transfer Demo</h1>
+<p class="note">Simulated gateway: no real money moves. The destination account number decides the outcome.</p>
 
-  <div class="top">
-    <div class="avatar" id="avatar">P</div>
-    <div class="hello"><b id="hello">PayBridge</b><span><i id="dot" class="dot"></i><em id="health" style="font-style:normal">checking…</em></span></div>
-    <a class="icon-btn" href="/swagger-ui.html" target="_blank" rel="noopener" title="API docs" aria-label="API docs">
-      <svg viewBox="0 0 24 24"><path d="M8 9l-4 3 4 3M16 9l4 3-4 3M13.5 6l-3 12"/></svg></a>
-  </div>
+<label>Destination account (outcome)
+    <select id="account">
+        <option value="0123456789">0123456789 : success</option>
+        <option value="0000000002">0000000002 : pending</option>
+        <option value="0000000003">0000000003 : rejected (insufficient balance)</option>
+        <option value="0000000004">0000000004 : provider timeout (stays pending)</option>
+        <option value="0000000005">0000000005 : name enquiry fails</option>
+    </select>
+</label>
+<label>Bank code <input id="bank" value="058"></label>
+<label>Amount (NGN) <input id="amount" type="number" step="0.01" value="5000.00"></label>
+<label>Reason <input id="reason" value="School fees"></label>
 
-  <!-- HOME -->
-  <div id="v-home" class="view on">
-    <div class="balance">
-      <div class="lbl">Available balance
-        <button class="eye" id="eye" aria-label="Show or hide balance"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
-      <div class="amt" id="bal">₦0.00</div>
-      <div class="acct" id="balAcct">No account yet</div>
-      <div class="row"><span class="acct" id="balHolder"></span><button class="pill-btn" id="addMoneyBtn">+ Add money</button></div>
-    </div>
+<div class="key">Idempotency-Key: <span id="key"></span></div>
 
-    <div class="switch" id="switch"></div>
-
-    <div class="quick">
-      <button class="q" data-go="send"><i><svg viewBox="0 0 24 24"><path d="M3 10l9-6 9 6M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18"/></svg></i>To bank</button>
-      <button class="q" id="q-add"><i><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></i>Add money</button>
-      <button class="q" data-go="activity"><i><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg></i>Statement</button>
-      <a class="q" href="/actuator/health" target="_blank" rel="noopener"><i><svg viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg></i>Health</a>
-    </div>
-
-    <div class="sec">
-      <h2>Recent transfers <button class="link" data-go="activity">See all</button></h2>
-      <div id="homeTransfers"><div class="empty">Loading…</div></div>
-    </div>
-    <div class="foot">Sandbox only: no real money moves.</div>
-  </div>
-
-  <!-- SEND -->
-  <div id="v-send" class="view">
-    <div class="title">Send to bank</div>
-    <div class="subtitle">Any Nigerian bank account, or another PayBridge account</div>
-    <div style="padding:0 18px">
-      <div class="from"><div><small>From</small><b id="srcLabel">No account selected</b></div><div style="text-align:right"><small>Balance</small><b id="srcBal">₦0.00</b></div></div>
-      <label for="bank">Bank</label>
-      <select id="bank"><option value="">Loading banks…</option></select>
-      <label for="acc">Account number</label>
-      <input id="acc" inputmode="numeric" maxlength="10" placeholder="10 digits" autocomplete="off">
-      <div id="resolved" class="name"></div>
-      <label for="amt">Amount (₦)</label>
-      <input id="amt" inputmode="decimal" placeholder="5000.00" autocomplete="off">
-      <label for="why">Narration (optional)</label>
-      <input id="why" maxlength="100" placeholder="School fees" autocomplete="off">
-      <div class="hint">Simulator shortcuts, tap to fill the account number:</div>
-      <div class="chips" id="chips"></div>
-      <div class="hint">Send to another PayBridge account, tap to fill:</div>
-      <div class="chips" id="ownChips"></div>
-      <button class="btn" id="sendBtn">Send money</button>
-      <button class="btn ghost" id="againBtn" disabled>Send same request again</button>
-      <div class="hint">The second button reuses the Idempotency-Key. You get the first answer back and nothing is sent twice.</div>
-    </div>
-  </div>
-
-  <!-- ACTIVITY -->
-  <div id="v-activity" class="view">
-    <div class="title">Activity</div>
-    <div class="subtitle">Transfers, ledger and server responses</div>
-    <div class="sec"><h2>Transfers</h2><div id="transfers"><div class="empty">Loading…</div></div></div>
-    <div class="sec"><h2>Ledger <span style="font-size:12.5px;color:var(--muted);font-weight:500" id="stmtFor"></span></h2><div id="entries"><div class="empty">Select an account.</div></div></div>
-    <div class="sec"><h2>Last API response</h2><div id="reqline" class="reqline">None yet</div><pre id="raw">Nothing sent yet.</pre></div>
-    <div class="foot"><a href="https://github.com/I-AB/paybridge" target="_blank" rel="noopener">GitHub</a></div>
-  </div>
-
-  <nav class="nav">
-    <button data-go="home" class="on"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8M5 10v10h14V10"/></svg>Home</button>
-    <button data-go="send"><svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>Send</button>
-    <button data-go="activity"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Activity</button>
-  </nav>
+<div class="row">
+    <button class="primary" onclick="send(true)">Send new transfer</button>
+    <button onclick="send(false)">Send same request again (same key)</button>
+</div>
+<div class="row">
+    <button onclick="check()">Check status</button>
+    <button onclick="sync()">Sync with provider</button>
 </div>
 
-<!-- sheets -->
-<div class="scrim" id="scrim"></div>
-<div class="sheet" id="sheetOpen" role="dialog" aria-label="Open account">
-  <div class="grab"></div><h3>Open an account</h3>
-  <div class="hint">A new NGN wallet with a zero balance.</div>
-  <label for="holder">Account holder name</label>
-  <input id="holder" maxlength="100" placeholder="e.g. Ada Obi" autocomplete="off">
-  <button class="btn" id="openBtn">Open account</button>
-</div>
-<div class="sheet" id="sheetFund" role="dialog" aria-label="Add money">
-  <div class="grab"></div><h3>Add sandbox money</h3>
-  <div class="hint" id="fundFor">To your account</div>
-  <label for="fundAmt">Amount (₦)</label>
-  <input id="fundAmt" inputmode="decimal" value="10000" autocomplete="off">
-  <button class="btn" id="fundBtn">Add money</button>
-</div>
-<div id="toast" class="toast" role="status"></div>
+<pre id="out">Press "Send new transfer".</pre>
 
 <script>
-(() => {
-  const $ = (id) => document.getElementById(id);
-  const naira = (n) => '₦' + Number(n).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : 'k-' + Date.now() + '-' + Math.random().toString(16).slice(2));
-  const ICON = {
-    out: '<svg viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg>',
-    in: '<svg viewBox="0 0 24 24"><path d="M17 7L7 17M15 17H7V9"/></svg>',
-  };
-  const state = { source: null, accounts: [], last: null, hidden: false };
+    let key = crypto.randomUUID();
+    let lastId = null;
+    const out = document.getElementById("out");
+    const show = t => out.textContent = t;
+    const showKey = () => document.getElementById("key").textContent = key;
+    showKey();
 
-  function toast(msg) {
-    const t = $('toast'); t.textContent = msg; t.classList.add('show');
-    clearTimeout(toast.timer); toast.timer = setTimeout(() => t.classList.remove('show'), 3200);
-  }
-  function el(tag, props, ...kids) {
-    const e = document.createElement(tag);
-    Object.assign(e, props || {});
-    kids.forEach((k) => e.append(k));
-    return e;
-  }
-  function icon(kind, cls) { const d = el('div', { className: 'ico ' + cls }); d.innerHTML = ICON[kind]; return d; }
-
-  async function api(method, path, { body, headers } = {}) {
-    const res = await fetch(path, {
-      method,
-      headers: Object.assign({}, body ? { 'Content-Type': 'application/json' } : {}, headers || {}),
-      body: body ? JSON.stringify(body) : undefined,
-    });
-    let data = null;
-    const text = await res.text();
-    try { data = text ? JSON.parse(text) : null; } catch { data = text; }
-    return { res, data };
-  }
-  function showRaw(method, path, res, data, extra) {
-    const replay = res.headers.get('Idempotent-Replayed');
-    $('reqline').textContent = `${method} ${path} → ${res.status}` + (replay ? ' [Idempotent-Replayed: true]' : '') + (extra ? ' ' + extra : '');
-    $('raw').textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
-  }
-
-  /* ---------- navigation + sheets ---------- */
-  function go(view) {
-    document.querySelectorAll('.view').forEach((v) => v.classList.toggle('on', v.id === 'v-' + view));
-    document.querySelectorAll('.nav button').forEach((b) => b.classList.toggle('on', b.dataset.go === view));
-    window.scrollTo(0, 0);
-  }
-  document.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => go(b.dataset.go)));
-  function openSheet(id) { $('scrim').classList.add('on'); $(id).classList.add('on'); }
-  function closeSheets() { $('scrim').classList.remove('on'); document.querySelectorAll('.sheet').forEach((s) => s.classList.remove('on')); }
-  $('scrim').addEventListener('click', closeSheets);
-
-  /* ---------- health ---------- */
-  async function checkHealth() {
-    try {
-      const { res, data } = await api('GET', '/actuator/health');
-      const up = res.ok && data && data.status === 'UP';
-      $('health').textContent = up ? 'Online' : 'Degraded';
-      $('dot').className = 'dot ' + (up ? 'up' : 'down');
-    } catch { $('health').textContent = 'Offline'; $('dot').className = 'dot down'; }
-  }
-
-  /* ---------- accounts ---------- */
-  const current = () => state.accounts.find((a) => a.accountNumber === state.source);
-  function paintBalance() {
-    const a = current();
-    $('bal').textContent = !a ? '₦0.00' : state.hidden ? '₦ ••••••' : naira(a.balance);
-    $('balAcct').textContent = a ? 'Account ' + a.accountNumber : 'No account yet';
-    $('balHolder').textContent = a ? a.holderName : 'Open one to begin';
-    $('hello').textContent = a ? 'Hi, ' + a.holderName.split(' ')[0] : 'PayBridge';
-    $('avatar').textContent = a ? a.holderName.trim().charAt(0).toUpperCase() : 'P';
-    $('srcLabel').textContent = a ? a.holderName + ' · ' + a.accountNumber : 'No account selected';
-    $('srcBal').textContent = a ? naira(a.balance) : '₦0.00';
-  }
-  async function loadAccounts() {
-    const { res, data } = await api('GET', '/api/accounts?limit=20');
-    state.accounts = res.ok && Array.isArray(data) ? data : [];
-    if (!current()) state.source = state.accounts.length ? state.accounts[0].accountNumber : null;
-    const sw = $('switch'); sw.replaceChildren();
-    state.accounts.forEach((a) => {
-      const b = el('button', { className: 'sw' + (a.accountNumber === state.source ? ' on' : ''), textContent: a.holderName });
-      b.addEventListener('click', () => { state.source = a.accountNumber; render(); });
-      sw.append(b);
-    });
-    const add = el('button', { className: 'sw add', textContent: '+ New account' });
-    add.addEventListener('click', () => { openSheet('sheetOpen'); setTimeout(() => $('holder').focus(), 250); });
-    sw.append(add);
-    paintBalance();
-    buildOwnChips();
-  }
-  async function openAccount() {
-    const name = $('holder').value.trim();
-    if (name.length < 2) return toast('Enter the holder name first');
-    const { res, data } = await api('POST', '/api/accounts', { body: { holderName: name } });
-    showRaw('POST', '/api/accounts', res, data);
-    if (res.ok) { $('holder').value = ''; state.source = data.accountNumber; closeSheets(); toast('Account ' + data.accountNumber + ' opened'); render(); }
-    else toast((data && data.message) || 'Could not open account');
-  }
-  function askFund() {
-    if (!state.source) { toast('Open an account first'); openSheet('sheetOpen'); return; }
-    $('fundFor').textContent = 'To account ' + state.source;
-    openSheet('sheetFund');
-  }
-  async function fundAccount() {
-    const amount = Number($('fundAmt').value);
-    if (!(amount > 0)) return toast('Enter a positive amount');
-    const path = `/api/accounts/${state.source}/fund`;
-    const { res, data } = await api('POST', path, { body: { amount }, headers: { 'Idempotency-Key': 'fund-' + uuid() } });
-    showRaw('POST', path, res, data);
-    closeSheets();
-    toast(res.ok ? 'Added ' + naira(amount) : (data && data.message) || 'Could not add money');
-    render();
-  }
-
-  /* ---------- banks + name enquiry ---------- */
-  async function loadBanks() {
-    const sel = $('bank');
-    try {
-      const { res, data } = await api('GET', '/api/banks');
-      if (!res.ok || !Array.isArray(data) || !data.length) throw new Error('no banks');
-      sel.replaceChildren(...data.map((b) => el('option', { value: b.code, textContent: b.name })));
-    } catch { sel.replaceChildren(el('option', { value: '058', textContent: 'Bank code 058' }), el('option', { value: '000000', textContent: 'PayBridge wallet (another PayBridge account)' })); }
-  }
-  let resolveTimer;
-  function scheduleResolve() {
-    clearTimeout(resolveTimer);
-    const r = $('resolved'); r.textContent = ''; r.className = 'name';
-    const acc = $('acc').value.trim();
-    if (!/^\d{10}$/.test(acc)) return;
-    resolveTimer = setTimeout(async () => {
-      r.textContent = 'Looking up…';
-      const { res, data } = await api('GET', `/api/banks/resolve?accountNumber=${acc}&bankCode=${encodeURIComponent($('bank').value)}`);
-      if (res.ok) { r.textContent = '✓ ' + data.accountName; r.className = 'name'; }
-      else { r.textContent = (data && data.message) || 'Could not resolve this account'; r.className = 'name err'; }
-    }, 350);
-  }
-  const INTERNAL_BANK = '000000';
-  function buildOwnChips() {
-    const box = $('ownChips'); box.replaceChildren();
-    const others = state.accounts.filter((a) => a.accountNumber !== state.source);
-    if (!others.length) { box.append(el('span', { className: 'hint', textContent: 'Open a second account to try this.' })); return; }
-    others.forEach((a) => {
-      const c = el('button', { className: 'chip', type: 'button', textContent: a.holderName + ' · ' + a.accountNumber.slice(-4) });
-      c.addEventListener('click', () => { $('bank').value = INTERNAL_BANK; $('acc').value = a.accountNumber; scheduleResolve(); });
-      box.append(c);
-    });
-  }
-  function buildChips() {
-    const hints = [['0000000001', 'success'], ['0000000002', 'pending'], ['0000000003', 'rejected'], ['0000000004', 'timeout'], ['0000000005', 'lookup fails']];
-    $('chips').replaceChildren(...hints.map(([n, label]) => {
-      const c = el('button', { className: 'chip', type: 'button', textContent: n.slice(-1) + ' · ' + label });
-      c.addEventListener('click', () => { if ($('bank').value === INTERNAL_BANK && $('bank').options.length > 1) $('bank').selectedIndex = 0; $('acc').value = n; scheduleResolve(); });
-      return c;
-    }));
-  }
-
-  /* ---------- transfers ---------- */
-  function requestFromForm() {
-    if (!state.source) { toast('Open an account first'); return null; }
-    const amount = Number($('amt').value);
-    if (!/^\d{10}$/.test($('acc').value.trim())) { toast('Account number must be 10 digits'); return null; }
-    if (!(amount > 0)) { toast('Enter an amount'); return null; }
-    return {
-      key: 'ui-' + uuid(),
-      body: {
-        sourceAccount: state.source,
-        destination: { accountNumber: $('acc').value.trim(), bankCode: $('bank').value || '058' },
-        amount, currency: 'NGN', reason: $('why').value.trim() || undefined,
-      },
-    };
-  }
-  async function submit(req) {
-    $('sendBtn').disabled = true; $('againBtn').disabled = true;
-    try {
-      const { res, data } = await api('POST', '/api/transfers', { body: req.body, headers: { 'Idempotency-Key': req.key } });
-      showRaw('POST', '/api/transfers', res, data, 'Idempotency-Key: ' + req.key);
-      if (res.ok) {
-        state.last = req;
-        toast(res.status === 200 ? 'Same key: original result returned, nothing sent again'
-          : data.status === 'SUCCESS' ? 'Sent ' + naira(data.amount)
-          : data.status === 'PENDING' ? 'Accepted, still pending' : 'Failed: ' + (data.failureReason || 'see Activity'));
-        go('home');
-      } else toast((data && data.message) || 'Request rejected');
-    } catch { toast('Could not reach the API'); }
-    $('sendBtn').disabled = false; $('againBtn').disabled = !state.last;
-    render();
-  }
-  function transferRow(t, withSync) {
-    const to = t.destination.accountName || t.destination.accountNumber;
-    const right = el('div', { className: 'right' }, el('b', { textContent: '-' + naira(t.amount) }), el('span', { className: 'tag ' + t.status, textContent: t.status }));
-    if (withSync && t.status === 'PENDING') {
-      const b = el('button', { className: 'mini', textContent: 'Refresh' });
-      b.addEventListener('click', async () => {
-        const p = `/api/transfers/${t.id}/sync`;
-        const r = await api('POST', p); showRaw('POST', p, r.res, r.data); render();
-      });
-      right.append(el('div', {}, b));
+    function payload() {
+        return {
+            sourceAccount: "wallet-001",
+            destination: {
+                accountNumber: document.getElementById("account").value,
+                bankCode: document.getElementById("bank").value
+            },
+            amount: parseFloat(document.getElementById("amount").value),
+            currency: "NGN",
+            reason: document.getElementById("reason").value
+        };
     }
-    return el('div', { className: 'item' }, icon('out', t.status),
-      el('div', { className: 'meta' }, el('b', { textContent: 'Transfer to ' + to }),
-        el('span', { textContent: t.destination.accountNumber + ' · ' + new Date(t.createdAt).toLocaleString([], { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' }) })),
-      right);
-  }
-  async function loadTransfers() {
-    const { res, data } = await api('GET', '/api/transfers?limit=15');
-    const list = res.ok && Array.isArray(data) ? data : [];
-    const home = $('homeTransfers'), full = $('transfers');
-    home.replaceChildren(); full.replaceChildren();
-    if (!list.length) {
-      home.append(el('div', { className: 'empty', textContent: 'No transfers yet. Tap "To bank" to send one.' }));
-      full.append(el('div', { className: 'empty', textContent: 'No transfers yet.' }));
-      return;
+
+    async function call(url, options) {
+        try {
+            const res = await fetch(url, options);
+            const text = await res.text();
+            let body;
+            try { body = JSON.stringify(JSON.parse(text), null, 2); } catch (e) { body = text; }
+            const replay = res.headers.get("Idempotent-Replayed");
+            return "HTTP " + res.status + (replay ? "   (Idempotent-Replayed: " + replay + ")" : "") + "\n\n" + body;
+        } catch (e) {
+            return "Request failed: " + e.message;
+        }
     }
-    list.slice(0, 3).forEach((t) => home.append(transferRow(t, false)));
-    list.forEach((t) => full.append(transferRow(t, true)));
-  }
 
-  /* ---------- statement ---------- */
-  async function loadEntries() {
-    const box = $('entries'); box.replaceChildren();
-    if (!state.source) { box.append(el('div', { className: 'empty', textContent: 'Select an account.' })); return; }
-    $('stmtFor').textContent = state.source;
-    const { res, data } = await api('GET', `/api/accounts/${state.source}/entries?limit=15`);
-    if (!res.ok || !Array.isArray(data) || !data.length) {
-      box.append(el('div', { className: 'empty', textContent: 'No movements yet. Add money to start.' }));
-      return;
+    async function send(fresh) {
+        if (fresh) { key = crypto.randomUUID(); showKey(); }
+        show("Sending... (the first request after idle can take up to a minute)");
+        const res = await fetch("/api/transfers", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Idempotency-Key": key },
+            body: JSON.stringify(payload())
+        }).catch(e => null);
+        if (!res) { show("Request failed. Is the service awake?"); return; }
+        const text = await res.text();
+        let json = null;
+        try { json = JSON.parse(text); } catch (e) {}
+        if (json && json.id) lastId = json.id;
+        const replay = res.headers.get("Idempotent-Replayed");
+        show("HTTP " + res.status + (replay ? "   (Idempotent-Replayed: " + replay + ")" : "") + "\n\n" +
+            (json ? JSON.stringify(json, null, 2) : text));
     }
-    data.forEach((e) => box.append(el('div', { className: 'item' },
-      icon(e.direction === 'CREDIT' ? 'in' : 'out', e.direction),
-      el('div', { className: 'meta' }, el('b', { textContent: e.description || e.direction }), el('span', { textContent: 'Balance ' + naira(e.balanceAfter) })),
-      el('div', { className: 'right' }, el('b', { textContent: (e.direction === 'CREDIT' ? '+' : '-') + naira(e.amount) }), el('span', { className: 'tag ' + e.direction, textContent: e.direction })))));
-  }
 
-  async function render() {
-    await loadAccounts();
-    await Promise.all([loadTransfers(), loadEntries()]);
-  }
+    async function check() {
+        if (!lastId) { show("Send a transfer first."); return; }
+        show(await call("/api/transfers/" + lastId, { method: "GET" }));
+    }
 
-  $('openBtn').addEventListener('click', openAccount);
-  $('holder').addEventListener('keydown', (e) => { if (e.key === 'Enter') openAccount(); });
-  $('fundBtn').addEventListener('click', fundAccount);
-  $('addMoneyBtn').addEventListener('click', askFund);
-  $('q-add').addEventListener('click', askFund);
-  $('eye').addEventListener('click', () => { state.hidden = !state.hidden; paintBalance(); });
-  $('sendBtn').addEventListener('click', () => { const r = requestFromForm(); if (r) submit(r); });
-  $('againBtn').addEventListener('click', () => { if (state.last) submit(state.last); });
-  $('acc').addEventListener('input', scheduleResolve);
-  $('bank').addEventListener('change', scheduleResolve);
-
-  buildChips(); checkHealth(); loadBanks(); render();
-  setInterval(checkHealth, 30000);
-  setInterval(() => { loadTransfers(); }, 15000);
-})();
+    async function sync() {
+        if (!lastId) { show("Send a transfer first."); return; }
+        show(await call("/api/transfers/" + lastId + "/sync", { method: "POST" }));
+    }
 </script>
 </body>
 </html>

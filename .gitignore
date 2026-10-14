@@ -1,7 +1,4 @@
-# Build output
 target/
-
-# IDE / OS
 .idea/
 *.iml
 .vscode/
@@ -9,7 +6,7 @@ target/
 
 # Secrets and local data (never commit API keys, even test keys)
 .env
-.env.*
-!.env.example
+.env
+!.env
 data/
 *.log

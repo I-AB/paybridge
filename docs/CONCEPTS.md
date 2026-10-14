@@ -66,17 +66,3 @@ Paystack computes `HMAC_SHA512(secretKey, rawBody)` and sends it in `x-paystack-
 
 **What if the facilitator asks "what is not done?"**
 Be direct: no real debit from an internal account (account and ledger modules are empty), no authentication on the API, no handling of a reversal after success, and the Paystack field names should be re-checked against the live docs. See "Known limits" in the README.
-
-## Added with accounts and the ledger
-
-**Why a ledger and not just a balance column?** A balance says where you are; the ledger says how you got there. Every change appends one line (reference, direction, amount, balance after). Lines are never edited or deleted, so you can always audit or rebuild a balance.
-
-**Why does a ledger reference have to be unique?** It is a second idempotency layer. A retry, a duplicate webhook and the reconciler can all try to refund the same transfer; only the first insert of `refund:<reference>` succeeds, so money is returned once.
-
-**Why `SELECT ... FOR UPDATE`?** Two requests could both read balance 1,000 and both spend 800. Locking the account row makes the second wait and see the new balance. The `CHECK (balance_minor >= 0)` constraint is a backstop if a bug ever skips the lock.
-
-**Hold, send, settle.** Debit first (hold), call the provider, then keep the debit on success or reverse it on failure. On a timeout we do not know, so the money stays held until a webhook or the reconciler finds the truth.
-
-**What does the reconciler fix?** Webhooks can be lost and apps can crash between two steps. A scheduled job re-checks old PENDING transfers with the provider and retries refunds that did not finish.
-
-**Why compare the webhook amount?** A signature proves the message came from the provider, not that it describes the amount we expect. Mismatches are recorded and not applied.

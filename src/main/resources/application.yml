@@ -2,18 +2,12 @@ spring:
   application:
     name: paybridge
   datasource:
-    # Default: in-memory H2 (data is lost on restart). To keep data, point these three variables
-    # at PostgreSQL, e.g. SPRING_DATASOURCE_URL=jdbc:postgresql://host/db?sslmode=require
-    url: ${SPRING_DATASOURCE_URL:jdbc:h2:mem:paybridge;DB_CLOSE_DELAY=-1}
-    username: ${SPRING_DATASOURCE_USERNAME:sa}
-    password: ${SPRING_DATASOURCE_PASSWORD:}
+    # In-memory H2 database: data is lost when the app stops. Fine for a classroom demo.
+    url: jdbc:h2:mem:paybridge;DB_CLOSE_DELAY=-1
   sql:
     init:
       mode: always
-      schema-locations:
-        - classpath:db/migration/V1__create_transfers.sql
-        - classpath:db/migration/V2__create_accounts_and_ledger.sql
-        - classpath:db/migration/V3__create_webhook_events.sql
+      schema-locations: classpath:db/migration/V1__create_transfers.sql
 
 server:
   port: ${PORT:8080}
@@ -24,39 +18,12 @@ paybridge:
     gateway: ${PAYBRIDGE_GATEWAY:paystack}
     # Name enquiry before sending. Set to false if Paystack test mode cannot resolve your test account.
     resolve-account-before-send: ${PAYBRIDGE_RESOLVE_ACCOUNT:true}
-    # When true, a transfer must come from a PayBridge account with enough balance (money is held on send,
-    # returned if the transfer fails). Turn off only for gateway-only experiments.
-    enforce-source-balance: ${PAYBRIDGE_ENFORCE_BALANCE:true}
-  accounts:
-    # Lets the demo page / Swagger credit an account with sandbox money. Switch off for anything real.
-    sandbox-funding-enabled: ${PAYBRIDGE_SANDBOX_FUNDING:true}
-  reconcile:
-    # Background job: asks the provider about stale PENDING transfers and returns held money for failed ones.
-    enabled: true
-    interval: PT1M
-    initial-delay: PT30S
-    min-age: PT30S
-    give-up-after: PT10M
   paystack:
     base-url: https://api.paystack.co
     # Never put a key here. Set the PAYSTACK_SECRET_KEY environment variable (test key, sk_test_...).
     secret-key: ${PAYSTACK_SECRET_KEY:}
     connect-timeout: 3s
     read-timeout: 10s
-
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info
-  endpoint:
-    health:
-      show-details: never
-
-springdoc:
-  swagger-ui:
-    operations-sorter: method
-    tags-sorter: alpha
 
 logging:
   level:

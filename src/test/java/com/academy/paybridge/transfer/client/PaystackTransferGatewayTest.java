@@ -72,17 +72,6 @@ class PaystackTransferGatewayTest {
     }
 
     @Test
-    void listBanksReadsNameAndCode() {
-        server.expect(requestTo(BASE + "/bank?country=nigeria&perPage=200"))
-                .andExpect(method(GET))
-                .andExpect(header("Authorization", "Bearer " + KEY))
-                .andRespond(withSuccess("{\"status\":true,\"message\":\"Banks retrieved\",\"data\":[{\"name\":\"Access Bank\",\"code\":\"044\",\"slug\":\"access-bank\"},{\"name\":\"GTBank\",\"code\":\"058\"}]}", MediaType.APPLICATION_JSON));
-
-        assertThat(gateway.listBanks()).containsExactly(new BankInfo("Access Bank", "044"), new BankInfo("GTBank", "058"));
-        server.verify();
-    }
-
-    @Test
     void resolveAccountReturnsTheAccountName() {
         server.expect(requestTo(BASE + "/bank/resolve?account_number=0123456789&bank_code=058"))
                 .andExpect(method(GET))
